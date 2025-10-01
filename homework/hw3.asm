@@ -1,85 +1,118 @@
-.MODEL small
-.STACK 100h
-.DATA
-msgPrime     db 13,10,'Просте число$'
-msgNotPrime  db 13,10,'Не просте число$'
+section .data
+    msg_prime       db " is prime", 10
+    msg_prime_len   equ $-msg_prime
+    msg_not_prime   db " is not prime", 10
+    msg_not_prime_len equ $-msg_not_prime
 
-.CODE
-main PROC
-    mov ax, @data
-    mov ds, ax
+section .bss
+    num_str resb 20
 
-    mov ax, 29     ; число в AX (можна змінити)
+section .text
+global _start
 
-    call IsPrime
-    cmp bl, 1      ; Результат IsPrime тепер у BL
-    je PRIME
-    
-    mov ah,9
-    lea dx,msgNotPrime
-    int 21h
-    jmp EXIT
+_start:
+    ; Вхідне число
+    mov rax, 17             ; <- змінити число тут
+    mov rbx, rax            ; збережемо для обробки та виводу
 
-PRIME:
-    mov ah,9
-    lea dx,msgPrime
-    int 21h
+    ; Вивід числа
+    mov rsi, num_str
+    call print_number
 
-EXIT:
-    mov ah,4Ch
-    int 21h
-main ENDP
+    ; Перевірка на простоту
+    mov rax, rbx
+    call is_prime
+    cmp rax, 1
+    je .prime
 
-IsPrime PROC
-    push ax        ; Зберігаємо AX (оригінальне число)
-    push cx        ; Зберігаємо CX (лічильник)
-    push dx        ; Зберігаємо DX (для DIV)
+.not_prime:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel msg_not_prime]
+    mov rdx, msg_not_prime_len
+    syscall
+    jmp .exit
 
-    ; Вхід: AX - число для перевірки
-    ; Вихід: BL = 1, якщо просте; BL = 0, якщо не просте
+.prime:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel msg_prime]
+    mov rdx, msg_prime_len
+    syscall
 
-    cmp ax, 2
-    jb  NotPrime_SetResult ; Якщо AX < 2, не просте
-    cmp ax, 2
-    je  Prime_SetResult    ; Якщо AX = 2, просте
+.exit:
+    mov rax, 60
+    xor rdi, rdi
+    syscall
 
-    ; Якщо AX > 2, перевіряємо на парність
-    test ax, 1             ; Перевірка молодшого біту
-    jz  NotPrime_SetResult ; Якщо парне, не просте (оскільки AX > 2)
+;------------------------
+; Підпрограма виводу числа в консоль
+print_number:
+    push rbx
+    mov rcx, 0          ; лічильник цифр
+    mov rdi, rsi
+    add rdi, 19
+    mov byte [rdi], 0
+    dec rdi
 
-    ; Перевірка дільників
-    mov cx, 3              ; Починаємо дільник з 3
-    mov bx, ax             ; Зберігаємо оригінальне число для ділення
+    mov rbx, rax
+    cmp rbx, 0
+    jne .convert_loop
+    mov byte [rdi], '0'
+    inc rcx
+    jmp .print_digits
 
-CheckLoop:
-    ; Перевіряємо доки cx*cx <= bx
-    ; Для чисел WORD (до 65535) це безпечно.
-    mov ax, cx
-    mul cx                 ; AX = CX * CX
-    cmp ax, bx             ; Порівнюємо CX*CX з оригінальним числом BX
-    ja  Prime_SetResult    ; Якщо CX*CX > BX, число просте
+.convert_loop:
+    xor rdx, rdx
+    mov rax, rbx
+    mov r8, 10
+    div r8
+    add dl, '0'
+    mov [rdi], dl
+    dec rdi
+    inc rcx
+    mov rbx, rax
+    test rbx, rbx
+    jnz .convert_loop
 
-    mov ax, bx             ; Ділене = BX (оригінальне число)
-    xor dx, dx             ; Очистити DX для ділення
-    div cx                 ; AX = BX / CX, DX = BX % CX
-    cmp dx, 0              ; Перевірити залишок
-    je  NotPrime_SetResult ; Якщо залишок 0, не просте
-
-    add cx, 2              ; Перейти до наступного непарного дільника
-    jmp CheckLoop
-
-Prime_SetResult:
-    mov bl, 1              ; Встановити BL = 1 (просте)
-    jmp DoneIsPrime
-
-NotPrime_SetResult:
-    mov bl, 0              ; Встановити BL = 0 (не просте)
-
-DoneIsPrime:
-    pop dx
-    pop cx
-    pop ax
+.print_digits:
+    inc rdi
+    mov rax, 1
+    mov rsi, rdi
+    mov rdx, rcx
+    mov rdi, 1
+    syscall
+    pop rbx
     ret
-IsPrime ENDP
 
-END main
+;------------------------
+; Підпрограма перевірки простоти
+; Вхід: rax = число
+; Вихід: rax = 1 якщо просте, 0 якщо ні
+is_prime:
+    push rbx
+    cmp rax, 2
+    jl .not_prime_flag
+    je .prime_flag
+
+    mov rbx, 2
+
+.loop_check:
+    mov rdx, 0
+    mov rcx, rax
+    div rbx
+    test rdx, rdx
+    je .not_prime_flag
+    inc rbx
+    cmp rbx, rcx
+    jl .loop_check
+
+.prime_flag:
+    mov rax, 1
+    pop rbx
+    ret
+
+.not_prime_flag:
+    mov rax, 0
+    pop rbx
+    ret
