@@ -1,8 +1,8 @@
 section .data
-    msg_prime       db " is prime", 10
-    msg_prime_len   equ $-msg_prime
-    msg_not_prime   db " is not prime", 10
-    msg_not_prime_len equ $-msg_not_prime
+    msg_prime       db " - це просте число", 10
+    len_msg_prime   equ $-msg_prime
+    msg_not_prime   db " - це не просте число", 10
+    len_msg_not_prime equ $-msg_not_prime
 
 section .bss
     num_str resb 20
@@ -11,56 +11,56 @@ section .text
 global _start
 
 _start:
-    ; Вхідне число
-    mov rax, 17             ; <- змінити число тут
-    mov rbx, rax            ; збережемо для обробки та виводу
+    mov ax, 17       ; Число для перевірки
+    movzx rbx, ax    ; Розширення до 64-біт
 
-    ; Вивід числа
+    mov rax, rbx
     mov rsi, num_str
     call print_number
 
-    ; Перевірка на простоту
     mov rax, rbx
     call is_prime
     cmp rax, 1
-    je .prime
+    je .is_prime_label
 
-.not_prime:
+.is_not_prime_label:
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rel msg_not_prime]
-    mov rdx, msg_not_prime_len
+    mov rsi, msg_not_prime
+    mov rdx, len_msg_not_prime
     syscall
-    jmp .exit
+    jmp .exit_program
 
-.prime:
+.is_prime_label:
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rel msg_prime]
-    mov rdx, msg_prime_len
+    mov rsi, msg_prime
+    mov rdx, len_msg_prime
     syscall
 
-.exit:
+.exit_program:
     mov rax, 60
     xor rdi, rdi
     syscall
 
-;------------------------
-; Підпрограма виводу числа в консоль
 print_number:
     push rbx
-    mov rcx, 0          ; лічильник цифр
+    push rcx
+    push rdx
+    
     mov rdi, rsi
     add rdi, 19
     mov byte [rdi], 0
     dec rdi
 
     mov rbx, rax
+    mov rcx, 0
+
     cmp rbx, 0
     jne .convert_loop
     mov byte [rdi], '0'
     inc rcx
-    jmp .print_digits
+    jmp .do_print
 
 .convert_loop:
     xor rdx, rdx
@@ -75,44 +75,59 @@ print_number:
     test rbx, rbx
     jnz .convert_loop
 
-.print_digits:
+.do_print:
     inc rdi
     mov rax, 1
     mov rsi, rdi
     mov rdx, rcx
     mov rdi, 1
     syscall
+    
+    pop rdx
+    pop rcx
     pop rbx
     ret
 
-;------------------------
-; Підпрограма перевірки простоти
-; Вхід: rax = число
-; Вихід: rax = 1 якщо просте, 0 якщо ні
 is_prime:
     push rbx
+    push rcx
+    push rdx
+    
     cmp rax, 2
-    jl .not_prime_flag
-    je .prime_flag
+    jl .not_prime ; Числа < 2 не прості
+    cmp rax, 3
+    jle .prime    ; 2 і 3 - прості
 
-    mov rbx, 2
+    test al, 1    ; Перевірка на парність (якщо > 3)
+    jz .not_prime ; Парні числа > 2 не прості
 
-.loop_check:
-    mov rdx, 0
-    mov rcx, rax
-    div rbx
-    test rdx, rdx
-    je .not_prime_flag
-    inc rbx
-    cmp rbx, rcx
-    jl .loop_check
+    mov rbx, rax  ; Число для перевірки
+    mov rcx, 3    ; Починаємо ділити з 3
 
-.prime_flag:
-    mov rax, 1
-    pop rbx
-    ret
+.check_loop:
+    mov rax, rcx
+    mul rcx           ; rcx * rcx
+    cmp rax, rbx      ; Якщо дільник^2 > число, то число просте
+    jg .prime
 
-.not_prime_flag:
-    mov rax, 0
+    mov rax, rbx      ; Завантажуємо число для ділення
+    xor rdx, rdx      ; Очищаємо rdx для залишку
+    div rcx           ; Ділення на rcx
+    test rdx, rdx     ; Перевірка залишку
+    jz .not_prime     ; Якщо залишок 0, то число не просте
+
+    add rcx, 2        ; Збільшуємо дільник на 2 (перевіряємо тільки непарні)
+    jmp .check_loop
+
+.prime:
+    mov rax, 1        ; Повертаємо 1 (просте)
+    jmp .done
+
+.not_prime:
+    mov rax, 0        ; Повертаємо 0 (не просте)
+
+.done:
+    pop rdx
+    pop rcx
     pop rbx
     ret
