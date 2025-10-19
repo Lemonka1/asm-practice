@@ -1,0 +1,108 @@
+section .data
+    N           dq 10      
+    MSG_IN      db 'Chyslo N: '
+    LEN_IN      equ $ - MSG_IN
+    MSG_OUT     db 'Rezultat (N!): '
+    LEN_OUT     equ $ - MSG_OUT
+    NL          db 0Ah      
+
+section .bss
+    BUF         resb 21 
+
+section .text
+    global _start
+
+_start:
+
+    mov     rax, 1
+    mov     rdi, 1
+    mov     rsi, MSG_IN
+    mov     rdx, LEN_IN
+    syscall
+    
+    mov     rax, [N]
+    call    print_uint64
+    call    newline
+
+    mov     rax, [N]
+    call    factorial_iter
+
+    push    rax
+
+    mov     rax, 1
+    mov     rdi, 1
+    mov     rsi, MSG_OUT
+    mov     rdx, LEN_OUT
+    syscall
+
+    pop     rax
+    call    print_uint64
+    call    newline
+
+    mov     rax, 60
+    xor     rdi, rdi
+    syscall
+
+
+factorial_iter:
+    push    rbx
+    mov     rbx, 1
+    cmp     rax, 1
+    jbe     .done
+
+.loop:
+    mul     rbx
+    inc     rbx
+    cmp     rbx, [N]
+    jle     .loop
+
+.done:
+    pop     rbx
+    ret
+
+
+print_uint64:
+    push    rax
+    push    rcx
+    push    rdx
+    push    rsi
+
+    mov     rcx, 10
+    mov     rsi, BUF + 20
+
+    cmp     rax, 0
+    jne     .conv
+    dec     rsi
+    mov     byte [rsi], '0'
+    jmp     .out
+
+.conv:
+    xor     rdx, rdx
+    div     rcx
+    add     dl, '0'
+    dec     rsi
+    mov     [rsi], dl
+    test    rax, rax
+    jnz     .conv
+
+.out:
+    mov     rdx, BUF + 20
+    sub     rdx, rsi
+    mov     rax, 1
+    mov     rdi, 1
+    syscall
+
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
+    ret
+
+
+newline:
+    mov     rax, 1
+    mov     rdi, 1
+    mov     rsi, NL
+    mov     rdx, 1
+    syscall
+    ret
