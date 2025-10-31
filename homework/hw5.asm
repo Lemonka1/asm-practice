@@ -1,37 +1,20 @@
-section .data
-msg db "******************************",10
-    db "*  *                      *  *",10
-    db "*    *                  *    *",10
-    db "*      *              *      *",10
-    db "*        *          *        *",10
-    db "*          *      *          *",10
-    db "*            *  *            *",10
-    db "*             **             *",10
-    db "*           *    *           *",10
-    db "*         *        *         *",10
-    db "*       *            *       *",10
-    db "*     *                *     *",10
-    db "*   *                    *   *",10
-    db "* *                        * *",10
-    db "******************************",10,0
+#include <stdio.h>
 
-section .text
-global _start
+int main() {
+    int AH = 28; // ширина конверта
+    int AL = 14; // высота конверта
 
-_start:
-    mov rsi, msg
-.next:
-    lodsb              ; зчитати наступний байт у AL
-    cmp al, 0
-    je .done
-    mov rax, 1         ; sys_write
-    mov rdi, 1         ; stdout
-    mov rdx, 1
-    syscall
-    jmp .next
+    for (int y = 0; y < AL; y++) {
+        for (int x = 0; x < AH; x++) {
+            if (y == 0 || y == AL - 1 || x == 0 || x == AH - 1 ||
+                x == y * (AH - 1) / (AL - 1) ||
+                x == (AH - 1) - y * (AH - 1) / (AL - 1))
+                printf("*");
+            else
+                printf(" ");
+        }
+        printf("\n");
+    }
 
-.done:
-    mov rax, 60        ; sys_exit
-    xor rdi, rdi
-    syscall
-
+    return 0;
+}
